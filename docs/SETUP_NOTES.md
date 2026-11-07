@@ -1,6 +1,6 @@
 # Setup notes
 
-Verified facts for this project. Last updated 2026-11-07 (M0 done).
+Verified facts for this project. Last updated 2026-11-07 (M0 done, M1 awaiting the team's look at the grid).
 
 ## Status
 
@@ -107,6 +107,26 @@ Measured from `scripts/smoke_test.py` on `libero_spatial` task 0.
 - **LIBERO prompts on first import** if `~/.libero/config.yaml` is missing, which hangs or crashes a non-interactive run. `smoke_test.py` creates it first. Colab will hit this too.
 - **Assets download on first use:** about 400 MB to `~/.cache/libero`. The Hub cache is about 3.9 GB with both checkpoints.
 - **`opencv-python` and `opencv-python-headless` are both installed**, at different versions, through LeRobot's dependencies. Nothing has broken so far; check this first if `cv2` misbehaves in M1.
+
+## Corruptions (M1)
+
+Kernel sizes are in pixels for the 256x256 frames. No scaling was needed: on the grid, the plan's blur and fog values meet its rule that severity 1 is barely noticeable and severity 5 is hard but not blank.
+
+**`low_light` differs from the plan**, because the plan's values failed that rule. Severity 1 halved mean brightness (119 to 57), and severity 5 was nearly blank (mean 7, contrast about 5, noise sigma 10 stronger than the remaining signal). The fixed gamma 1.2 made both ends worse.
+
+| Severity | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| Plan: brightness / noise sigma (gamma 1.2) | 0.60 / 2 | 0.40 / 4 | 0.25 / 6 | 0.15 / 8 | 0.08 / 10 |
+| **Used:** brightness | 0.85 | 0.65 | 0.45 | 0.30 | 0.20 |
+| **Used:** gamma | 1.04 | 1.08 | 1.12 | 1.16 | 1.20 |
+| **Used:** noise sigma | 1 | 2 | 3 | 4 | 6 |
+
+For M2, `corrupt()` is called on every step, and it costs under 8 ms per frame at severity 5, so it adds little to the 0.44 s/step:
+
+- **Make one new `rng` per episode, seeded from the episode's seed.** `motion_blur` draws its angle from a copy of `rng` without advancing it, so the angle stays fixed for as long as the same `rng` is reused. This meets the plan's "one angle per episode" without changing the contract.
+- **Both views share a blur angle** if they share an `rng`. Low-light noise still differs between views and frames, because it does advance `rng`.
+
+Sample frames in `app/assets/` are lossless PNGs from the `libero_spatial` task 0 reset (seed 1000), rotated as the policy sees them. Generate the grid with `python scripts/frame_grid.py`; pass `--input app/assets/sample_wrist.png --output <path>` for the wrist view.
 
 ## Timing and VRAM
 
