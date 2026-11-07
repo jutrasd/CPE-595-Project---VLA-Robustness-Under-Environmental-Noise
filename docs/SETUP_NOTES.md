@@ -100,7 +100,7 @@ These are the authors' own trained models, **not** scores for either Hub checkpo
 
 Results: `results/clean_baseline/` is `libero_object`; the others are in `results/clean_baseline_libero_<suite>/`.
 
-**Severity-0 check passed exactly.** Rerunning 8 episodes (tasks 0, 5, 8, 2) as `fog` at severity 0 reproduced every outcome and step count, including the failures. On the same device with the same seed, evaluation is deterministic, so a change in a sweep comes from the corruption rather than sampling noise.
+**Severity-0 check passed exactly.** Rerunning 8 episodes (tasks 0, 5, 8, 2) as `fog` at severity 0 reproduced every outcome and step count, including the failures. On the same device with the same seed, evaluation is deterministic, so an episode's outcome changes only because of the corruption. CIs still apply, because 20 episodes are a small sample of possible episodes.
 
 **Pairing:** each episode's seed is `base + 1000 * task_id + init_state`, independent of the condition. A different seed changes about 4% of pixels by more than 10 levels even with the same init state, so never compare episodes across seeds.
 
