@@ -1,6 +1,6 @@
 # Setup notes
 
-Verified facts for this project. Last updated 2026-11-07 (M0 done, M1 awaiting the team's look at the grid).
+Verified facts for this project. Last updated 2026-11-07 (M0 and M2 done; M1 and M3 awaiting the team's review).
 
 ## Status
 
@@ -69,9 +69,9 @@ Two official-looking SmolVLA LIBERO checkpoints exist. Neither model card publis
 | Known score | 79/100 on Spatial, community report ([discussion](https://huggingface.co/HuggingFaceVLA/smolvla_libero/discussions/1)) | None found; used in LeRobot CI as a smoke test |
 | Loads and steps in 0.6.1 | Yes | Yes |
 
-`smoke_test.py` defaults to `HuggingFaceVLA/smolvla_libero` because it is the only one with any reported score. **This choice is provisional.** M2 should measure clean success to settle it.
+**Using `HuggingFaceVLA/smolvla_libero`.** On the same 20 `libero_object` episodes at `n_action_steps=10`, it scored 17/20 and `lerobot/smolvla_libero` scored 18/20. That is well within noise, so there was no reason to switch.
 
-`n_action_steps` matters. The SmolVLA paper's Table 13 gives LIBERO averages of 80.3% at 1 step, 82.8% at 10, and 51.8% at 50, so `lerobot/smolvla_libero`'s default of 50 may score low unless overridden. On the other hand, 1 step means running inference at every sim step, which is the slowest setting.
+**`n_action_steps=10` for all evaluation (team decision, 2026-11-07).** This overrides the checkpoint's default of 1 and is about 3x faster. The SmolVLA paper's Table 13 gives LIBERO averages of 80.3% at 1 step, 82.8% at 10, and 51.8% at 50. Every comparison must use the same value. The CSV has no column for it, so each sweep saves a `run_config.json`, and resuming with a different value is refused. `smoke_test.py` still uses the checkpoint's default unless you pass `--n-action-steps`.
 
 ## Published success rates
 
@@ -84,6 +84,54 @@ SmolVLA paper ([arXiv 2506.01844](https://arxiv.org/abs/2506.01844)), Table 2, 1
 | SmolVLA (2.25B) | 93 | 94 | 91 | 77 | 88.75 |
 
 These are the authors' own trained models, **not** scores for either Hub checkpoint. Other measurements run lower: the CRT paper noted in `CLAUDE.md` saw 43% on LIBERO-10, and the community run above saw 79% on Spatial. Compare M2 baselines with those in mind.
+
+## Clean baselines (M2)
+
+`HuggingFaceVLA/smolvla_libero`, `n_action_steps=10`, all 10 tasks x init states 0 and 1, base seed 1000:
+
+| Suite | Clean success | 95% Wilson CI | Paper, 0.45B model |
+|---|---|---|---|
+| **`libero_object` (chosen)** | **17/20 = 85%** | 64-95% | 96 |
+| `libero_spatial` | 11/20 = 55% | 34-74% | 90 |
+| `libero_goal` | 11/20 = 55% | 34-74% | 92 |
+| `libero_10` | 9/20 = 45% | 26-66% | 71 |
+
+**The suite is `libero_object`**, per the rule to use the highest measured clean success. Its 85% is a reasonable margin from the paper's 96%, given the wide CI and that the paper tested its own model. `libero_10` agrees with the 43% in the CRT paper. The other three suites sit well below the paper, which has not been investigated, since the MVP doesn't use them. The community's 79% on Spatial used `n_action_steps=1` and a different harness, so 55% may reflect the setting or the small sample.
+
+Results: `results/clean_baseline/` is `libero_object`; the others are in `results/clean_baseline_libero_<suite>/`.
+
+**Severity-0 check passed exactly.** Rerunning 8 episodes (tasks 0, 5, 8, 2) as `fog` at severity 0 reproduced every outcome and step count, including the failures. On the same device with the same seed, evaluation is deterministic, so a change in a sweep comes from the corruption rather than sampling noise.
+
+**Pairing:** each episode's seed is `base + 1000 * task_id + init_state`, independent of the condition. A different seed changes about 4% of pixels by more than 10 levels even with the same init state, so never compare episodes across seeds.
+
+## First sweep results (M3)
+
+`libero_object`, `HuggingFaceVLA/smolvla_libero`, both cameras corrupted, same 20 episodes per point. Clean is 17/20 = 85% (CI 64-95%). "Half of clean" is 42.5%.
+
+| Corruption | Severity 1 | Severity 3 | Severity 5 | First below half of clean |
+|---|---|---|---|---|
+| Motion blur | 8/20 = 40% | 3/20 = 15% | 0/20 | 1 |
+| Defocus blur | 15/20 = 75% | 5/20 = 25% | 0/20 | 3 |
+| Low light | 18/20 = 90% | 16/20 = 80% | 0/20 | 5 |
+| Fog | 16/20 = 80% | 13/20 = 65% | 6/20 = 30% | 5 |
+
+Paired exact McNemar p-values against clean, uncorrected. With 12 tests, the Bonferroni threshold is about 0.004:
+
+| Corruption | Severity 1 | Severity 3 | Severity 5 |
+|---|---|---|---|
+| Motion blur | 0.012 | 0.0005 | <0.0001 |
+| Defocus blur | 0.63 | 0.0018 | <0.0001 |
+| Low light | 1.0 | 1.0 | <0.0001 |
+| Fog | 1.0 | 0.22 | 0.0010 |
+
+How to read these:
+
+- **Motion blur at severity 1 is the surprise.** It is hard to see, yet it lost 10 clean successes and gained 1. Its CI (22-61%) does not overlap clean's, but p=0.012 does not survive Bonferroni, so call it strong evidence pending more episodes. The kernel check found no bug: blur centroids shift at most 0.24 px over 1500 kernels, kernels are normalized, and severity 0 reproduces clean.
+- **Possible direction effect (exploratory).** At motion blur severity 1, episodes with a near-vertical blur (60-120 degrees) succeeded 7/11 times, against 1/9 otherwise. Fisher p is about 0.03, but the cutoff was chosen after seeing the data, and angle is tied to seed. This is a hypothesis to test, not a result. Severity-1 defocus changes pixels about as much and lowers sharpness more, yet lost only 3 episodes, which fits a direction effect.
+- **Low light looks like a cliff, but severities 2 and 4 were not run.** The lines between 3 and 5 are interpolation. Its position also depends on the values tuned in M1, so report it as "tolerant through severity 3", not as an absolute threshold.
+- **All of this is `libero_object` and 20 episodes.** Differences between neighboring points mostly fall inside the CIs.
+
+Results: `results/mvp_sweep/episodes.csv`, `results/summary.csv`, `results/plots/smolvla_degradation.png`.
 
 ## Observations
 
@@ -99,6 +147,9 @@ Measured from `scripts/smoke_test.py` on `libero_spatial` task 0.
 
 ## Gotchas
 
+- **The eval loop grows about 0.12 GB per episode** with the policy loaded. The first M3 sweep reached 7.1 GB at episode 36 and was OOM-killed along with VS Code. The simulator alone does not leak; the exact source was not traced. `run_sweep.py` therefore restarts a worker process every 20 episodes, which is safe because results are saved per episode and each episode seeds itself (verified: step counts match across restarts).
+- **Run long sweeps outside VS Code's process group** so neither can kill the other. Use the command under "Running a long sweep".
+- **EGL tracebacks at process exit are harmless.** All baseline runs exited 0 with complete CSVs.
 - **robosuite only tries EGL device 0, which fails here.** The devices are 0 NVIDIA (fails with `EGL_NOT_INITIALIZED`), 1 Intel UHD (works), 2 llvmpipe (works, software). `smoke_test.py` picks the first that initializes, which is Intel, so simulator rendering uses no NVIDIA VRAM. **M2's `evaluate.py` needs the same logic.** Why NVIDIA EGL fails is not diagnosed, since it isn't needed. Pixels could differ slightly on another renderer such as Colab's, so don't compare individual episodes across machines.
 - **`torchcodec` fails to import** because this machine has no FFmpeg shared libraries. Nothing in M0 needs it. **M5 reads `lerobot/libero` video, so it will hit this locally.** Try `--dataset.video_backend=pyav` first (`av` is installed); this is untested.
 - **Set the image size explicitly.** LeRobot's `LiberoEnv` config defaults to 360x360, but both checkpoints declare 256x256, and so does the `lerobot/libero` dataset. `smoke_test.py` passes 256.
@@ -139,7 +190,19 @@ Sample frames in `app/assets/` are lossless PNGs from the `libero_spatial` task 
 
 **It fits in 4 GB without half precision**, so `--amp` is not needed and M0-M2 can stay local.
 
-**M3 sweep estimate:** 240 episodes at up to about 2 minutes each is up to about 8 hours if most fail, which is likely at high severity. That is over the 2-hour ask-first limit, so plan it with the team. Raising `n_action_steps` would cut this, but it changes the policy's behavior, so it would have to be fixed before the baseline.
+At `n_action_steps=10`, a 20-episode `libero_object` baseline took about 5 minutes (15 s per episode). A failed episode takes about 30 s, so the 240-episode M3 sweep takes at most about 2 hours.
+
+## Running a long sweep
+
+```bash
+R=$PWD
+systemd-run --user --unit=vla-sweep --collect -p MemoryMax=8G -p MemorySwapMax=2G \
+  -p WorkingDirectory="$R" \
+  -p StandardOutput=append:"$R/results/mvp_sweep/sweep.log" -p StandardError=append:"$R/results/mvp_sweep/sweep.log" \
+  /usr/bin/env -u PYTHONPATH -u LD_LIBRARY_PATH ~/anaconda3/envs/vla/bin/python scripts/run_sweep.py configs/mvp_sweep.yaml
+```
+
+Check it with `systemctl --user is-active vla-sweep` and `tail results/mvp_sweep/sweep.log`. Stop it with `systemctl --user stop vla-sweep`. Rerunning the same command resumes from the CSV.
 
 ## Smoke test results
 

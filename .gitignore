@@ -14,3 +14,6 @@ logs/
 *.log
 *.safetensors
 results/**/videos/
+
+# Local one-off checks.
+results/_*/

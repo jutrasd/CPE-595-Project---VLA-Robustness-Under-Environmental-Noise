@@ -1,0 +1,24 @@
+{
+  "checkpoint": "HuggingFaceVLA/smolvla_libero",
+  "suite": "libero_10",
+  "task_ids": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "init_states": [
+    0,
+    1
+  ],
+  "seed": 1000,
+  "n_action_steps": 10,
+  "image_size": 256,
+  "device": "cuda"
+}
