@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+.env
+
+# Videos, checkpoints and raw logs stay local; summary CSVs and plots are committed.
+*.mp4
+!app/assets/*.mp4
+checkpoints/
+outputs/
+logs/
+*.log
+*.safetensors
+results/**/videos/

@@ -1,0 +1,13 @@
+# Simulation, policy and training environment (Python 3.12). The Streamlit app has its own requirements.
+# Local GPU install. On a CPU-only machine, change the index to https://download.pytorch.org/whl/cpu
+# and drop the +cu128 suffixes.
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch==2.11.0+cu128
+torchvision==0.26.0+cu128
+lerobot[libero,smolvla]==0.6.1
+numpy==2.2.6
+pandas==2.3.3
+matplotlib==3.11.2
+imageio==2.38.1
+imageio-ffmpeg==0.8.1
+pytest==9.2.0
