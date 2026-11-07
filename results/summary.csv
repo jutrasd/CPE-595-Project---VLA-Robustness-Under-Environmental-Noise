@@ -1,0 +1,14 @@
+policy,corruption,severity,camera,n,successes,success_rate,ci_low,ci_high
+smolvla,defocus_blur,1,both,20,15,0.7500,0.5313,0.8881
+smolvla,defocus_blur,3,both,20,5,0.2500,0.1119,0.4687
+smolvla,defocus_blur,5,both,20,0,0.0000,0.0000,0.1611
+smolvla,fog,1,both,20,16,0.8000,0.5840,0.9193
+smolvla,fog,3,both,20,13,0.6500,0.4329,0.8188
+smolvla,fog,5,both,20,6,0.3000,0.1455,0.5190
+smolvla,low_light,1,both,20,18,0.9000,0.6990,0.9721
+smolvla,low_light,3,both,20,16,0.8000,0.5840,0.9193
+smolvla,low_light,5,both,20,0,0.0000,0.0000,0.1611
+smolvla,motion_blur,1,both,20,8,0.4000,0.2188,0.6134
+smolvla,motion_blur,3,both,20,3,0.1500,0.0524,0.3604
+smolvla,motion_blur,5,both,20,0,0.0000,0.0000,0.1611
+smolvla,none,0,both,20,17,0.8500,0.6396,0.9476

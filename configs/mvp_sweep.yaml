@@ -1,1 +1,12 @@
-# SmolVLA MVP sweep settings (M3).
+# First SmolVLA sweep (M3). 4 corruptions x 3 severities x 10 tasks x 2 init states = 240 episodes.
+# Severity 0 comes from results/clean_baseline. Suite and checkpoint must match that baseline.
+sweep_name: mvp_sweep
+checkpoint: HuggingFaceVLA/smolvla_libero
+suite: libero_object
+task_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+init_states: [0, 1]
+seed: 1000
+n_action_steps: 10
+corruptions: [motion_blur, defocus_blur, low_light, fog]
+severities: [1, 3, 5]
+cameras: [both]

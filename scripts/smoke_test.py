@@ -1,50 +1,16 @@
 """Run one clean SmolVLA episode on one LIBERO task, save an mp4, print success and steps (M0)."""
 
 import argparse
-import os
-import subprocess
 import sys
 import time
 from contextlib import nullcontext
 from pathlib import Path
 
-# Must be set before anything imports MuJoCo. Respect an explicit override (e.g. osmesa).
-os.environ.setdefault("MUJOCO_GL", "egl")
+# Running a script puts scripts/ on the path, not the repo root.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-
-def ensure_libero_config() -> None:
-    """Create LIBERO's config file, because importing LIBERO without one blocks on input()."""
-    config_dir = Path(os.environ.get("LIBERO_CONFIG_PATH", Path.home() / ".libero"))
-    if not (config_dir / "config.yaml").exists():
-        subprocess.run(
-            [sys.executable, "-c", "import libero.libero"], input="N\n", text=True, check=True
-        )
-
-
-def pick_egl_device() -> None:
-    """Point robosuite at the first EGL device that initializes.
-
-    robosuite only tries device 0, which fails on this laptop (NVIDIA, under PRIME on-demand).
-    Device indexes differ by machine, so probe instead of hardcoding one.
-    """
-    if os.environ["MUJOCO_GL"] != "egl" or "MUJOCO_EGL_DEVICE_ID" in os.environ:
-        return
-    os.environ.setdefault("PYOPENGL_PLATFORM", "egl")
-    from mujoco.egl import egl_ext as EGL
-    from OpenGL import error
-
-    for index, device in enumerate(EGL.eglQueryDevicesEXT()):
-        display = EGL.eglGetPlatformDisplayEXT(EGL.EGL_PLATFORM_DEVICE_EXT, device, None)
-        try:
-            initialized = EGL.eglInitialize(display, None, None)
-        except error.GLError:
-            continue
-        if initialized == EGL.EGL_TRUE:
-            EGL.eglTerminate(display)
-            os.environ["MUJOCO_EGL_DEVICE_ID"] = str(index)
-            print(f"EGL device for rendering: {index}")
-            return
-    sys.exit("No EGL device initialized. Try MUJOCO_GL=osmesa.")
+# Importing this also sets MUJOCO_GL, which has to happen before anything imports MuJoCo.
+from src.evaluate import ensure_libero_config, pick_egl_device  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
